@@ -40,23 +40,54 @@ end
 
 function DrivingRoute(blip,route)
     local lastblip
-    if blip == nil and i == 1 then
-        lastblip=CreateRouteBlip(blip,route[i])
-    else
-        while route[i+1] ~= nil and lastblip ~= nil do
-            Citizen.Wait(0)
-            lastblip=CreateRouteBlip(blip,route[i])
-            local ped = PlayerPedId()
-            local pedPos = GetEntityCoords(ped)
-            local distance = GetDistanceBetweenCoords(ped,route[i])
-            if distance <= 5.0 and route[i+1]~=nil then
-                print("Next Blip should be drawn")
-                i = i+1
-                local nextblip=CreateRouteBlip(lastblip,route[i])
-                DrivingRoute(nextblip,route)
-            end
+    local a = 1
+    while a < #route do
+        Citizen.Wait(1000)
+        lastblip=CreateRouteBlip(blip,route[a])
+        local ped = PlayerPedId()
+        local pedPos = GetEntityCoords(ped)
+        local distance = GetDistanceBetweenCoords(pedPos,route[a])
+        while distance > 5 do
+            Citizen.Wait(1000)
+            ped = PlayerPedId()
+            pedPos = GetEntityCoords(ped)
+            distance = GetDistanceBetweenCoords(pedPos,route[a])
+            print(distance)
         end
+        a = a + 1
+        DrivingRoute(lastblip,route)
     end
+
+    -- if blip == nil then
+    --     lastblip=CreateRouteBlip(blip,route[i])
+    --     local ped = PlayerPedId()
+    --     local pedPos = GetEntityCoords(ped)
+    --     local distance = GetDistanceBetweenCoords(ped,route[i])
+    --     while distance > 5.0 do
+    --         Citizen.Wait(0)
+    --         ped = PlayerPedId()
+    --         pedPos = GetEntityCoords(ped)
+    --         distance = GetDistanceBetweenCoords(ped,route[i])
+    --         print(distance)
+    --     end
+    --     nextblip=CreateRouteBlip(lastblip,route[i])
+    --     DrivingRoute(nextblip,route)
+    --     i = i + 1
+    -- else
+    --     while route[i+1] ~= nil and lastblip ~= nil do
+    --         Citizen.Wait(0)
+    --         lastblip=CreateRouteBlip(blip,route[i])
+    --         local ped = PlayerPedId()
+    --         local pedPos = GetEntityCoords(ped)
+    --         local distance = GetDistanceBetweenCoords(ped,route[i])
+    --         if distance <= 5.0 and route[i+1]~=nil then
+    --             print("Next Blip should be drawn")
+    --             i = i+1
+    --             nextblip=CreateRouteBlip(lastblip,route[i])
+    --             DrivingRoute(nextblip,route)
+    --         end
+    --     end
+    -- end
 end
 
 --- Events ---
