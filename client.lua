@@ -39,14 +39,14 @@ function CreateRouteBlip(lastblip,coords)
 end
 
 function DrivingRoute(blip,route)
-    local lastblip
+    local lastblip,ped,pedPos,distance
     local a = 1
-    while a < #route do
+    if a < #route then
         Citizen.Wait(1000)
         lastblip=CreateRouteBlip(blip,route[a])
-        local ped = PlayerPedId()
-        local pedPos = GetEntityCoords(ped)
-        local distance = GetDistanceBetweenCoords(pedPos,route[a])
+        ped = PlayerPedId()
+        pedPos = GetEntityCoords(ped)
+        distance = GetDistanceBetweenCoords(pedPos,route[a])
         while distance > 5 do
             Citizen.Wait(1000)
             ped = PlayerPedId()
@@ -54,9 +54,32 @@ function DrivingRoute(blip,route)
             distance = GetDistanceBetweenCoords(pedPos,route[a])
             print(distance)
         end
+        TriggerEvent("DRP_Core:Info","Waste Management",tostring("Proceed to the next point on the route"),4500,true,"leftCenter")
         a = a + 1
         DrivingRoute(lastblip,route)
     end
+    TriggerEvent("DRP_Core:Info","Waste Management",tostring("Head back to the landfill and return your truck to receive your pay"),4500,true,"leftCenter")
+    lastblip=AddBlipForCoord(Garbage.Garages.x,Garbage.Garages.y,Garbage.Garages.z)
+    SetBlipSprite(lastblip, 1)
+    SetBlipDisplay(lastblip, 4)
+    SetBlipScale(lastblip, 1.0)
+    SetBlipColour(lastblip, 5)
+    SetBlipRoute(lastblip,true)
+    SetBlipAsShortRange(lastblip, true)
+	BeginTextCommandSetBlipName('STRING')
+    AddTextComponentSubstringPlayerName('Landfill')
+    EndTextCommandSetBlipName(lastblip)
+    ped = PlayerPedId()
+    pedPos = GetEntityCoords(ped)
+    distance = GetDistanceBetweenCoords(pedPos,route[a])
+    while distance > 5 and GetVehiclePedIsIn(ped,false) ~= 0 do
+        Citizen.Wait(1000)
+        ped = PlayerPedId()
+        pedPos = GetEntityCoords(ped)
+        distance = GetDistanceBetweenCoords(pedPos,route[a])
+        print(distance)
+    end
+    TriggerServerEvent("fd_garbage:PayOut",route)
 
     -- if blip == nil then
     --     lastblip=CreateRouteBlip(blip,route[i])
