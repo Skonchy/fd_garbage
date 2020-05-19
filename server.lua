@@ -30,3 +30,11 @@ AddEventHandler("fd_garbage:SpawnVehicle", function(coords)
         TriggerClientEvent("fd_garbage:SpawnVehicle", src, coords)
     end
 end)
+
+RegisterServerEvent("fd_garbage:PayOut")
+AddEventHandler("fd_garbage:PayOut", function(route)
+    local pay = 50 * #route
+    local src = source
+    local player = exports["drp_id"]:GetCharacterData(src)
+    TriggerEvent("DRP_Bank:AddBankMoney", player, pay)
+end)

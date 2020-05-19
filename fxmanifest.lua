@@ -15,5 +15,7 @@ shared_scripts {
 }
 
 dependencies {
-    "externalsql"
+    "externalsql",
+    "drp_bank",
+    "drp_jobcore"
 }

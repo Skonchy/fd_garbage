@@ -1,5 +1,5 @@
 --- globals ---
-local i
+local i,truck
 
 
 --- functions ---
@@ -10,7 +10,9 @@ function SpawnVehicle(coords)
         RequestModel(hash)
         Citizen.Wait(0)
     end
-    return CreateVehicle(hash, coords.x,coords.y,coords.z,coords.h,true,false)
+    local newCar = CreateVehicle(hash, coords.x,coords.y,coords.z,coords.h,true,false)
+    exports["drp_LegacyFuel"]:SetFuel(newCar,100)
+    return newCar
 end
 
 function SelectRoute()
@@ -21,10 +23,7 @@ function SelectRoute()
     return route
 end
 
-function CreateRouteBlip(lastblip,coords)
-    if lastblip ~= nil then
-        RemoveBlip(lastblip)
-    end
+function CreateRouteBlip(coords)
     local blip = AddBlipForCoord(coords)
     SetBlipSprite(blip, 1)
     SetBlipDisplay(blip, 4)
@@ -38,28 +37,37 @@ function CreateRouteBlip(lastblip,coords)
     return blip
 end
 
-function DrivingRoute(blip,route)
+function DrivingRoute(route)
     local lastblip,ped,pedPos,distance
-    local a = 1
-    if a < #route then
+    if i < #route then
         Citizen.Wait(1000)
-        lastblip=CreateRouteBlip(blip,route[a])
+        lastblip=CreateRouteBlip(route[i])
         ped = PlayerPedId()
         pedPos = GetEntityCoords(ped)
-        distance = GetDistanceBetweenCoords(pedPos,route[a])
-        while distance > 5 do
+        distance = GetDistanceBetweenCoords(pedPos,route[i])
+        while distance > 5 and GetVehiclePedIsIn(ped,false)~=0 do
             Citizen.Wait(1000)
             ped = PlayerPedId()
             pedPos = GetEntityCoords(ped)
-            distance = GetDistanceBetweenCoords(pedPos,route[a])
-            print(distance)
+            distance = GetDistanceBetweenCoords(pedPos,route[i])
+            print(distance,i,GetVehiclePedIsIn(ped,true)==truck,GetVehiclePedIsIn(ped,false)==0)
         end
-        TriggerEvent("DRP_Core:Info","Waste Management",tostring("Proceed to the next point on the route"),4500,true,"leftCenter")
-        a = a + 1
-        DrivingRoute(lastblip,route)
+        if GetVehiclePedIsIn(ped,true) == truck then
+            TriggerEvent("DRP_Core:Info","Waste Management",tostring("Proceed to the next point on the route"),4500,true,"leftCenter")
+            i = i + 1
+            RemoveBlip(lastblip)
+            DrivingRoute(route)
+        else
+            TriggerEvent("DRP_Core:Warning","Waste Management", tostring("You must be using your provided garbage truck"),4500,true,"leftCenter")
+        end
     end
+    RemoveBlip(lastblip)
+end
+
+function EndRoute(route)
     TriggerEvent("DRP_Core:Info","Waste Management",tostring("Head back to the landfill and return your truck to receive your pay"),4500,true,"leftCenter")
-    lastblip=AddBlipForCoord(Garbage.Garages.x,Garbage.Garages.y,Garbage.Garages.z)
+    local landfill = vector3(Garbage.Garages[1].x,Garbage.Garages[1].y,Garbage.Garages[1].z)
+    lastblip=AddBlipForCoord(landfill)
     SetBlipSprite(lastblip, 1)
     SetBlipDisplay(lastblip, 4)
     SetBlipScale(lastblip, 1.0)
@@ -71,53 +79,25 @@ function DrivingRoute(blip,route)
     EndTextCommandSetBlipName(lastblip)
     ped = PlayerPedId()
     pedPos = GetEntityCoords(ped)
-    distance = GetDistanceBetweenCoords(pedPos,route[a])
-    while distance > 5 and GetVehiclePedIsIn(ped,false) ~= 0 do
+    distance = GetDistanceBetweenCoords(pedPos,landfill)
+    while distance > 5 do
         Citizen.Wait(1000)
         ped = PlayerPedId()
         pedPos = GetEntityCoords(ped)
-        distance = GetDistanceBetweenCoords(pedPos,route[a])
-        print(distance)
+        distance = GetDistanceBetweenCoords(pedPos,landfill)
     end
-    TriggerServerEvent("fd_garbage:PayOut",route)
-
-    -- if blip == nil then
-    --     lastblip=CreateRouteBlip(blip,route[i])
-    --     local ped = PlayerPedId()
-    --     local pedPos = GetEntityCoords(ped)
-    --     local distance = GetDistanceBetweenCoords(ped,route[i])
-    --     while distance > 5.0 do
-    --         Citizen.Wait(0)
-    --         ped = PlayerPedId()
-    --         pedPos = GetEntityCoords(ped)
-    --         distance = GetDistanceBetweenCoords(ped,route[i])
-    --         print(distance)
-    --     end
-    --     nextblip=CreateRouteBlip(lastblip,route[i])
-    --     DrivingRoute(nextblip,route)
-    --     i = i + 1
-    -- else
-    --     while route[i+1] ~= nil and lastblip ~= nil do
-    --         Citizen.Wait(0)
-    --         lastblip=CreateRouteBlip(blip,route[i])
-    --         local ped = PlayerPedId()
-    --         local pedPos = GetEntityCoords(ped)
-    --         local distance = GetDistanceBetweenCoords(ped,route[i])
-    --         if distance <= 5.0 and route[i+1]~=nil then
-    --             print("Next Blip should be drawn")
-    --             i = i+1
-    --             nextblip=CreateRouteBlip(lastblip,route[i])
-    --             DrivingRoute(nextblip,route)
-    --         end
-    --     end
-    -- end
+    RemoveBlip(lastblip)
+    if GetVehiclePedIsIn(ped,false) == truck then
+        DeleteVehicle(GetVehiclePedIsIn(ped,true))
+        TriggerServerEvent("fd_garbage:PayOut",route)
+    end
 end
 
 --- Events ---
 RegisterNetEvent("fd_garbage:SpawnVehicle")
 AddEventHandler("fd_garbage:SpawnVehicle", function(coords)
     local ped = PlayerPedId()
-    local truck = SpawnVehicle(coords)
+    truck = SpawnVehicle(coords)
     SetPedIntoVehicle(ped,truck,-1)
 end)
 
@@ -157,10 +137,10 @@ Citizen.CreateThread(function()
                if IsControlJustPressed(1,86) then
                 TriggerServerEvent("fd_garbage:SpawnVehicle",Garbage.CarSpawns[a])
                 local route = SelectRoute()
-                DrivingRoute(nil,route)
+                DrivingRoute(route)
+                EndRoute(route)
                elseif IsControlJustPressed(1,73) then
                 DeleteVehicle(GetVehiclePedIsIn(ped,true))
-                TriggerServerEvent("fd_garbage:payOut")
                end
             end
         end
@@ -169,7 +149,7 @@ Citizen.CreateThread(function()
 end)
 -- Blips --
 Citizen.CreateThread(function()
-    local blip = AddBlipForCoord(vector3(-454, -1704.25, 19))
+    local blip = AddBlipForCoord(Garbage.SignOnAndOff[1].x, Garbage.SignOnAndOff[1].y, Garbage.SignOnAndOff[1].z)
     SetBlipSprite(blip, 318)
 	BeginTextCommandSetBlipName('STRING')
     AddTextComponentSubstringPlayerName('Landfill')
