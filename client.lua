@@ -16,7 +16,7 @@ end
 function SelectRoute()
     i = 1
     local src = source
-    local rand = math.random(1,2)
+    local rand = math.random(1,5)
     local route = Garbage.Routes[rand]
     return route
 end
