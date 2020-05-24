@@ -1,5 +1,5 @@
 --- globals ---
-local i,truck,aipartner,aiontruck
+local i,truck,aipartner,aiontruck,bag
 
 
 --- functions ---
@@ -31,12 +31,69 @@ function SpawnPartner()
     local ped = CreatePed(4,hash,Garbage.SignOnAndOff[1].x,Garbage.SignOnAndOff[1].y,Garbage.SignOnAndOff[1].z,0.0,false,true)
 end
 
-function AiGetOnTruck(bool)
-    if bool then
-        
+function AiGetOnTruck(bool, coords)
+    if bool and coords == nil and not DoesEntityExist(bag) then
+        TaskEnterVehicle(aipartner, truck, -1, 4, 1.0, 0)
+        aiontruck = true
+    elseif bool and DoesEntityExist(bag) then
+        local x,y,z = table.unpack(GetEntityCoords(truck,false))
+        local aix, aiy, aiz = table.unpack(GetEntityCoords(aipartner,false))
+        local distance = Vdist(x, y, z, aix, aiy, aiz)
+        while distance > 1.0 do
+            aix, aiy, aiz = table.unpack(GetEntityCoords(aipartner,false))
+            distance = Vdist(x, y, z, aix, aiy, aiz)
+            Citizen.Wait(1000)
+        end
+        ThrowBagInTruck()
     else
-
+        TaskLeaveVehicle(aipartner, truck, 256)
+        aiontruck = false
+        AiToDumpster(coords)
     end
+end
+
+function AiToDumpster(coords)
+    local x,y,z = table.unpack(coords)
+    local aix, aiy, aiz = table.unpack(GetEntityCoords(aipartner,false))
+    local distance = Vdist(x, y, z, aix, aiy, aiz)
+    if not aiontruck then
+        TaskGoToCoordAnyMeans(aipartner, x, y, z, 1.0, 0, 0, 786603, 1.0)
+        while distance > 1.0 do
+            aix, aiy, aiz = table.unpack(GetEntityCoords(aipartner,false))
+            distance = Vdist(x, y, z, aix, aiy, aiz)
+            Citizen.Wait(1000)
+        end
+        GetBagFromBin()
+        AiGetOnTruck(true,nil)
+    end
+end
+
+function GetBagFromBin()
+    if not HasAnimDictLoaded("anim@heists@narcotics@trash") then
+		RequestAnimDict("anim@heists@narcotics@trash") 
+		while not HasAnimDictLoaded("anim@heists@narcotics@trash") do 
+			Citizen.Wait(0)
+		end
+    end
+    ClearPedTasksImmediately(aipartner)
+    bag = CreateObject(GetHashKey("prop_cs_street_binbag_01"), 0, 0, 0, true, true, true)
+    AttachEntityToEntity(bag, aipartner, GetPedBoneIndex(aipartner, 57005), 0.4, 0, 0, 0, 270.0, 60.0, true, true, false, true, 1, true)
+    TaskPlayAnim(aipartner, 'anim@heists@narcotics@trash', 'walk', 1.0, -1.0,-1,49,0,0, 0,0)
+end
+
+function ThrowBagInTruck()
+    if not HasAnimDictLoaded("anim@heists@narcotics@trash") then
+		RequestAnimDict("anim@heists@narcotics@trash") 
+		while not HasAnimDictLoaded("anim@heists@narcotics@trash") do 
+			Citizen.Wait(0)
+		end
+	end
+	ClearPedTasksImmediately(aipartner)
+	TaskPlayAnim(aipartner, 'anim@heists@narcotics@trash', 'throw_b', 1.0, -1.0,-1,2,0,0, 0,0)
+    Citizen.Wait(800)
+    DeleteEntity(bag)
+    Citizen.Wait(100)
+    ClearPedTasksImmediately(aipartner)
 end
 
 function SelectRoute()
@@ -76,11 +133,12 @@ function DrivingRoute(route)
             distance = GetDistanceBetweenCoords(pedPos,route[i])
             print(distance,i,GetVehiclePedIsIn(ped,true)==truck,GetVehiclePedIsIn(ped,false)==0)
         end
-        if GetVehiclePedIsIn(ped,true) == truck then
-            TriggerEvent("DRP_Core:Info","Waste Management",tostring("Proceed to the next point on the route"),4500,true,"leftCenter")
-            i = i + 1
-            RemoveBlip(lastblip)
-            DrivingRoute(route)
+        if GetVehiclePedIsIn(ped,true) == truck and aiontruck then
+            
+            -- TriggerEvent("DRP_Core:Info","Waste Management",tostring("Proceed to the next point on the route"),4500,true,"leftCenter")
+            -- i = i + 1
+            -- RemoveBlip(lastblip)
+            -- DrivingRoute(route)
         else
             TriggerEvent("DRP_Core:Warning","Waste Management", tostring("You must be using your provided garbage truck"),4500,true,"leftCenter")
         end
@@ -113,6 +171,7 @@ function EndRoute(route)
     RemoveBlip(lastblip)
     if GetVehiclePedIsIn(ped,false) == truck then
         DeleteVehicle(GetVehiclePedIsIn(ped,true))
+        DeletePed(aipartner)
         TriggerServerEvent("fd_garbage:PayOut",route)
     end
 end
