@@ -1,5 +1,5 @@
 --- globals ---
-local i,truck
+local i,truck,aipartner,aiontruck
 
 
 --- functions ---
@@ -13,6 +13,30 @@ function SpawnVehicle(coords)
     local newCar = CreateVehicle(hash, coords.x,coords.y,coords.z,coords.h,true,false)
     exports["drp_LegacyFuel"]:SetFuel(newCar,100)
     return newCar
+end
+
+function SpawnPartner()
+    local hash
+    local num = GetRandomIntInRange(1, 2)
+    if num == 1 then 
+        hash = "s_m_y_garbage"
+    elseif num == 2 then
+        hash = "s_m_m_gardener_01" 
+    end
+    RequestModel(hash)
+    while not HasModelLoaded(hash) do
+        RequestModel(hash)
+        Citizen.Wait(0)
+    end
+    local ped = CreatePed(4,hash,Garbage.SignOnAndOff[1].x,Garbage.SignOnAndOff[1].y,Garbage.SignOnAndOff[1].z,0.0,false,true)
+end
+
+function AiGetOnTruck(bool)
+    if bool then
+        
+    else
+
+    end
 end
 
 function SelectRoute()
@@ -113,11 +137,11 @@ Citizen.CreateThread(function()
             if distance <= 5.0 then
                 sleep = 10
                 exports["drp_core"]:DrawText3Ds(Garbage.SignOnAndOff[i].x, Garbage.SignOnAndOff[i].y, Garbage.SignOnAndOff[i].z,tostring("~b~[E]~w~ to sign on duty or ~r~[X]~w~ to sign off duty"))
-            end
-            if IsControlJustPressed(1, 86) then
-                TriggerServerEvent("fd_garbage:ToggleDuty", false)
-            elseif IsControlJustPressed(1, 73) then
-                TriggerServerEvent("fd_garbage:ToggleDuty", true)
+                if IsControlJustPressed(1, 86) then
+                    TriggerServerEvent("fd_garbage:ToggleDuty", false)
+                elseif IsControlJustPressed(1, 73) then
+                    TriggerServerEvent("fd_garbage:ToggleDuty", true)
+                end
             end
         end
         Citizen.Wait(sleep)
