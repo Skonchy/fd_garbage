@@ -29,10 +29,11 @@ function SpawnPartner()
         Citizen.Wait(0)
     end
     local ped = CreatePed(4,hash,Garbage.SignOnAndOff[1].x,Garbage.SignOnAndOff[1].y,Garbage.SignOnAndOff[1].z,0.0,false,true)
+    return ped
 end
 
 function AiGetOnTruck(bool, coords)
-    if bool and coords == nil and not DoesEntityExist(bag) then
+    if bool and not DoesEntityExist(bag) then
         TaskEnterVehicle(aipartner, truck, -1, 4, 1.0, 0)
         aiontruck = true
     elseif bool and DoesEntityExist(bag) then
@@ -45,6 +46,8 @@ function AiGetOnTruck(bool, coords)
             Citizen.Wait(1000)
         end
         ThrowBagInTruck()
+        TaskEnterVehicle(aipartner, truck, -1, 4, 1.0, 0)
+        aiontruck = true
     else
         TaskLeaveVehicle(aipartner, truck, 256)
         aiontruck = false
@@ -53,14 +56,11 @@ function AiGetOnTruck(bool, coords)
 end
 
 function AiToDumpster(coords)
-    local x,y,z = table.unpack(coords)
-    local aix, aiy, aiz = table.unpack(GetEntityCoords(aipartner,false))
-    local distance = Vdist(x, y, z, aix, aiy, aiz)
+    local distance = GetDistanceBetweenCoords(coords,GetEntityCoords(aipartner,false))
     if not aiontruck then
         TaskGoToCoordAnyMeans(aipartner, x, y, z, 1.0, 0, 0, 786603, 1.0)
         while distance > 1.0 do
-            aix, aiy, aiz = table.unpack(GetEntityCoords(aipartner,false))
-            distance = Vdist(x, y, z, aix, aiy, aiz)
+            distance = GetDistanceBetweenCoords(coords,GetEntityCoords(aipartner,false))
             Citizen.Wait(1000)
         end
         GetBagFromBin()
@@ -134,11 +134,11 @@ function DrivingRoute(route)
             print(distance,i,GetVehiclePedIsIn(ped,true)==truck,GetVehiclePedIsIn(ped,false)==0)
         end
         if GetVehiclePedIsIn(ped,true) == truck and aiontruck then
-            
-            -- TriggerEvent("DRP_Core:Info","Waste Management",tostring("Proceed to the next point on the route"),4500,true,"leftCenter")
-            -- i = i + 1
-            -- RemoveBlip(lastblip)
-            -- DrivingRoute(route)
+            AiGetOnTruck(false,route[i])
+            TriggerEvent("DRP_Core:Info","Waste Management",tostring("Proceed to the next point on the route"),4500,true,"leftCenter")
+            i = i + 1
+            RemoveBlip(lastblip)
+            DrivingRoute(route)
         else
             TriggerEvent("DRP_Core:Warning","Waste Management", tostring("You must be using your provided garbage truck"),4500,true,"leftCenter")
         end
@@ -220,6 +220,8 @@ Citizen.CreateThread(function()
                if IsControlJustPressed(1,86) then
                 TriggerServerEvent("fd_garbage:SpawnVehicle",Garbage.CarSpawns[a])
                 local route = SelectRoute()
+                aipartner = SpawnPartner()
+                AiGetOnTruck(true,nil)
                 DrivingRoute(route)
                 EndRoute(route)
                elseif IsControlJustPressed(1,73) then
