@@ -28,25 +28,38 @@ function SpawnPartner()
         RequestModel(hash)
         Citizen.Wait(0)
     end
-    local ped = CreatePed(4,hash,Garbage.SignOnAndOff[1].x,Garbage.SignOnAndOff[1].y,Garbage.SignOnAndOff[1].z,0.0,false,true)
-    return ped
+    aipartner = CreatePed(4,hash,Garbage.SignOnAndOff[1].x,Garbage.SignOnAndOff[1].y,Garbage.SignOnAndOff[1].z,0.0,false,true)
+    TriggerEvent("DRP_Core:Info","Waste Management",tostring("Wait for your coworker to get on the truck before beginning your route"),4500,false,"leftCenter")
 end
 
 function AiGetOnTruck(bool, coords)
     if bool and not DoesEntityExist(bag) then
-        TaskEnterVehicle(aipartner, truck, -1, 4, 1.0, 0)
-        aiontruck = true
-    elseif bool and DoesEntityExist(bag) then
-        local x,y,z = table.unpack(GetEntityCoords(truck,false))
-        local aix, aiy, aiz = table.unpack(GetEntityCoords(aipartner,false))
-        local distance = Vdist(x, y, z, aix, aiy, aiz)
-        while distance > 1.0 do
-            aix, aiy, aiz = table.unpack(GetEntityCoords(aipartner,false))
-            distance = Vdist(x, y, z, aix, aiy, aiz)
+        while not DoesEntityExist(aipartner) do 
+            Citizen.Wait(50)
+        end
+        repeat
+            TaskEnterVehicle(aipartner, truck, -1, 2, 1.0, 1, 0)
             Citizen.Wait(1000)
+        until GetVehiclePedIsIn(aipartner,false) ~= 0
+        aiontruck = true
+        print("ped should be on truck")
+    elseif bool and DoesEntityExist(bag) then
+        local truckpos = GetOffsetFromEntityInWorldCoords(truck, 0.0, -6.0, 0.0)
+        TaskGoToCoordAnyMeans(aipartner, truckpos.x, truckpos.y, truckpos.z, 1.0, 0, 0, 786603, 1.0)
+        local aipos = GetEntityCoords(aipartner,false)
+        local distance = GetDistanceBetweenCoords(truckpos,aipos)
+        while distance > 3.0 do
+            aipos = GetEntityCoords(aipartner,false)
+            distance = GetDistanceBetweenCoords(truckpos,aipos)
+            Citizen.Wait(1000)
+            print("Ai to truck: "..distance)
         end
         ThrowBagInTruck()
-        TaskEnterVehicle(aipartner, truck, -1, 4, 1.0, 0)
+        ClearPedTasksImmediately(aipartner)
+        repeat
+            TaskEnterVehicle(aipartner, truck, -1, 2, 1.0, 1, 0)
+            Citizen.Wait(1000)
+        until GetVehiclePedIsIn(aipartner,false) ~= 0
         aiontruck = true
     else
         TaskLeaveVehicle(aipartner, truck, 256)
@@ -58,12 +71,14 @@ end
 function AiToDumpster(coords)
     local distance = GetDistanceBetweenCoords(coords,GetEntityCoords(aipartner,false))
     if not aiontruck then
-        TaskGoToCoordAnyMeans(aipartner, x, y, z, 1.0, 0, 0, 786603, 1.0)
-        while distance > 1.0 do
+        TaskGoToCoordAnyMeans(aipartner, coords.x, coords.y, coords.z, 1.0, 0, 0, 786603, 1.0)
+        while distance > 1.5 do
             distance = GetDistanceBetweenCoords(coords,GetEntityCoords(aipartner,false))
+            print("Ai to dumpster: "..distance)
             Citizen.Wait(1000)
         end
         GetBagFromBin()
+        Citizen.Wait(500)
         AiGetOnTruck(true,nil)
     end
 end
@@ -75,6 +90,7 @@ function GetBagFromBin()
 			Citizen.Wait(0)
 		end
     end
+    TaskStartScenarioInPlace(aipartner, "PROP_HUMAN_BUM_BIN", 0, true)
     ClearPedTasksImmediately(aipartner)
     bag = CreateObject(GetHashKey("prop_cs_street_binbag_01"), 0, 0, 0, true, true, true)
     AttachEntityToEntity(bag, aipartner, GetPedBoneIndex(aipartner, 57005), 0.4, 0, 0, 0, 270.0, 60.0, true, true, false, true, 1, true)
@@ -120,20 +136,21 @@ end
 
 function DrivingRoute(route)
     local lastblip,ped,pedPos,distance
+    local player = PlayerPedId()
     if i < #route then
         Citizen.Wait(1000)
         lastblip=CreateRouteBlip(route[i])
-        ped = PlayerPedId()
+        ped = aipartner
         pedPos = GetEntityCoords(ped)
         distance = GetDistanceBetweenCoords(pedPos,route[i])
-        while distance > 5 and GetVehiclePedIsIn(ped,false)~=0 do
+        while distance > 10 and GetVehiclePedIsIn(ped,false)~=0 do
             Citizen.Wait(1000)
-            ped = PlayerPedId()
+            ped = aipartner
             pedPos = GetEntityCoords(ped)
             distance = GetDistanceBetweenCoords(pedPos,route[i])
-            print(distance,i,GetVehiclePedIsIn(ped,true)==truck,GetVehiclePedIsIn(ped,false)==0)
+            --print(distance,i,GetVehiclePedIsIn(ped,true)==truck,GetVehiclePedIsIn(ped,false)==0)
         end
-        if GetVehiclePedIsIn(ped,true) == truck and aiontruck then
+        if GetVehiclePedIsIn(player,true) == truck and aiontruck then
             AiGetOnTruck(false,route[i])
             TriggerEvent("DRP_Core:Info","Waste Management",tostring("Proceed to the next point on the route"),4500,true,"leftCenter")
             i = i + 1
@@ -220,8 +237,10 @@ Citizen.CreateThread(function()
                if IsControlJustPressed(1,86) then
                 TriggerServerEvent("fd_garbage:SpawnVehicle",Garbage.CarSpawns[a])
                 local route = SelectRoute()
-                aipartner = SpawnPartner()
+                SpawnPartner()
+                Citizen.Wait(2500)
                 AiGetOnTruck(true,nil)
+                print(aiontruck,DoesEntityExist(aipartner))
                 DrivingRoute(route)
                 EndRoute(route)
                elseif IsControlJustPressed(1,73) then
